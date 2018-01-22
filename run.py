@@ -18,11 +18,19 @@ print("pystarted")
 print(bc.GameMap.earth_map)
 
 def find_occupiable(unit):
+    if unit.location.is_in_garrison():
+        return None
     for dir in directions:
         #print(str(unit.location.map_location().add(dir).clone()) + " ;P" )
-        #loc = unit.location.map_location().add(dir)
-        #loc.x < bc.GameMap.earth_map.width and loc.x >= 0 and loc.y < bc.GameMap.earth_map.height and loc.y >= 0
-        if gc.can_move(unit.id, dir) and gc.is_occupiable(unit.location.map_location().add(dir)):
+        if unit.location.map_location().add(dir):
+            loc = unit.location.map_location().add(dir)
+        else:
+            continue
+        loc_map = gc.starting_map(loc.planet)
+
+        if (loc.x < loc_map.width and loc.x >= 0 and loc.y < loc_map.height and loc.y >= 0 
+            and gc.is_occupiable(unit.location.map_location().add(dir))):
+            #if gc.can_move(unit.id, dir) and gc.is_occupiable(unit.location.map_location().add(dir)):
             return dir
     return None
 
@@ -62,7 +70,7 @@ while True:
             if unit.unit_type == bc.UnitType.Factory:
                 garrison = unit.structure_garrison()
                 if len(garrison) > 0:
-                    if gc.can_unload(unit.id, bot_occupiable):
+                    if bot_occupiable and gc.can_unload(unit.id, bot_occupiable):
                         print('unloaded a unit!')
                         gc.unload(unit.id, bot_occupiable)
                         continue
@@ -71,38 +79,38 @@ while True:
                     print('produced a worker!')
                     continue
 
-            # or, try to build a factory:
-            if gc.karbonite() > bc.UnitType.Factory.blueprint_cost() and gc.can_blueprint(unit.id, bc.UnitType.Factory, bot_occupiable):
-                print("Blueprint")
-                gc.blueprint(unit.id, bc.UnitType.Factory, bot_occupiable)
-            # replicate
-            elif bot_occupiable and gc.can_replicate(unit.id, bot_occupiable):
-                print("Worker replicated!")
-                gc.replicate(unit.id, bot_occupiable)
-            # harvest
-            elif bot_can_harvest:
-                #print("Harvested")
-                print(gc.karbonite_at(unit.location.map_location().add(bot_can_harvest)))
-                gc.harvest(unit.id, bot_can_harvest)
-            # and if that fails, try to move
-            elif gc.is_move_ready(unit.id) and gc.can_move(unit.id, d):
-                print("Moved")
-                gc.move_robot(unit.id, d)
+            else:   # or, try to build a factory:
+                if gc.karbonite() > bc.UnitType.Factory.blueprint_cost() and gc.can_blueprint(unit.id, bc.UnitType.Factory, bot_occupiable):
+                    print("Blueprint")
+                    gc.blueprint(unit.id, bc.UnitType.Factory, bot_occupiable)
+                # replicate
+                elif bot_occupiable and gc.can_replicate(unit.id, bot_occupiable):
+                    print("Worker replicated!")
+                    gc.replicate(unit.id, bot_occupiable)
+                # harvest
+                elif bot_can_harvest:
+                    #print("Harvested")
+                    print(gc.karbonite_at(unit.location.map_location().add(bot_can_harvest)))
+                    gc.harvest(unit.id, bot_can_harvest)
+                # and if that fails, try to move
+                elif gc.is_move_ready(unit.id) and gc.can_move(unit.id, d):
+                    print("Moved")
+                    gc.move_robot(unit.id, d)
 
-            # first, let's look for nearby blueprints to work on
-            location = unit.location
-            if location.is_on_map():
-                nearby = gc.sense_nearby_units(location.map_location(), 2)
-                for other in nearby:
-                    if unit.unit_type == bc.UnitType.Worker and gc.can_build(unit.id, other.id):
-                        gc.build(unit.id, other.id)
-                        print('built a factory!')
-                        # move onto the next unit
-                        continue
-                    if other.team != my_team and gc.is_attack_ready(unit.id) and gc.can_attack(unit.id, other.id):
-                        print('attacked a thing!')
-                        gc.attack(unit.id, other.id)
-                        continue
+                # first, let's look for nearby blueprints to work on
+                location = unit.location
+                if location.is_on_map():
+                    nearby = gc.sense_nearby_units(location.map_location(), 2)
+                    for other in nearby:
+                        if unit.unit_type == bc.UnitType.Worker and gc.can_build(unit.id, other.id):
+                            gc.build(unit.id, other.id)
+                            print('built a factory!')
+                            # move onto the next unit
+                            continue
+                        if other.team != my_team and gc.is_attack_ready(unit.id) and gc.can_attack(unit.id, other.id):
+                            print('attacked a thing!')
+                            gc.attack(unit.id, other.id)
+                            continue
 
     except Exception as e:
         print('Error:', e)
