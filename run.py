@@ -15,10 +15,14 @@ gc = bc.GameController()
 directions = list(bc.Direction)
 
 print("pystarted")
+print(bc.GameMap.earth_map)
 
 def find_occupiable(unit):
     for dir in directions:
-        if unit.location.map_location().add(dir) and gc.is_occupiable(unit.location.map_location()):
+        #print(str(unit.location.map_location().add(dir).clone()) + " ;P" )
+        #loc = unit.location.map_location().add(dir)
+        #loc.x < bc.GameMap.earth_map.width and loc.x >= 0 and loc.y < bc.GameMap.earth_map.height and loc.y >= 0
+        if gc.can_move(unit.id, dir) and gc.is_occupiable(unit.location.map_location().add(dir)):
             return dir
     return None
 
@@ -70,12 +74,14 @@ while True:
             d = random.choice(directions)
             bot_can_harvest = worker_can_harvest(unit.id)
             bot_occupiable = find_occupiable(unit)
+            print(bot_occupiable)
             # or, try to build a factory:
             if gc.karbonite() > bc.UnitType.Factory.blueprint_cost() and gc.can_blueprint(unit.id, bc.UnitType.Factory, d):
                 print("Blueprint")
                 gc.blueprint(unit.id, bc.UnitType.Factory, d)
             # replicate
             elif bot_occupiable and gc.can_replicate(unit.id, bot_occupiable):
+                print("Worker replicated!")
                 gc.replicate(unit.id, bot_occupiable)
             # harvest
             elif bot_can_harvest:
