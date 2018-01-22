@@ -18,7 +18,7 @@ print("pystarted")
 
 def find_occupiable(unit):
     for dir in directions:
-        if unit.location.map_location().add(dir).new_on_map().is_on_map() and gc.is_occupiable(unit.location.map_location().add(dir)):
+        if unit.location.map_location().add(dir) and gc.is_occupiable(unit.location.map_location()):
             return dir
     return None
 
@@ -80,8 +80,8 @@ while True:
             # harvest
             elif bot_can_harvest:
                 #print("Harvested")
-                print(gc.karbonite_at(unit.location.map_location()))
-                gc.harvest(unit.id, bc.Direction.Center)
+                print(gc.karbonite_at(unit.location.map_location().add(bot_can_harvest)))
+                gc.harvest(unit.id, bot_can_harvest)
             # and if that fails, try to move
             elif gc.is_move_ready(unit.id) and gc.can_move(unit.id, d):
                 print("Moved")
