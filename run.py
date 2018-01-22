@@ -55,30 +55,26 @@ while True:
         # walk through our units:
         for unit in gc.my_units():
 
+            d = random.choice(directions)
+            bot_can_harvest = worker_can_harvest(unit.id)
+            bot_occupiable = find_occupiable(unit)
             # first, factory logic
             if unit.unit_type == bc.UnitType.Factory:
                 garrison = unit.structure_garrison()
                 if len(garrison) > 0:
-                    d = random.choice(directions)
-                    if gc.can_unload(unit.id, d):
+                    if gc.can_unload(unit.id, bot_occupiable):
                         print('unloaded a unit!')
-                        gc.unload(unit.id, d)
+                        gc.unload(unit.id, bot_occupiable)
                         continue
                 elif gc.can_produce_robot(unit.id, bc.UnitType.Worker):
                     gc.produce_robot(unit.id, bc.UnitType.Worker)
                     print('produced a worker!')
                     continue
 
-            # okay, there weren't any dudes around
-            # pick a random direction:
-            d = random.choice(directions)
-            bot_can_harvest = worker_can_harvest(unit.id)
-            bot_occupiable = find_occupiable(unit)
-            print(bot_occupiable)
             # or, try to build a factory:
-            if gc.karbonite() > bc.UnitType.Factory.blueprint_cost() and gc.can_blueprint(unit.id, bc.UnitType.Factory, d):
+            if gc.karbonite() > bc.UnitType.Factory.blueprint_cost() and gc.can_blueprint(unit.id, bc.UnitType.Factory, bot_occupiable):
                 print("Blueprint")
-                gc.blueprint(unit.id, bc.UnitType.Factory, d)
+                gc.blueprint(unit.id, bc.UnitType.Factory, bot_occupiable)
             # replicate
             elif bot_occupiable and gc.can_replicate(unit.id, bot_occupiable):
                 print("Worker replicated!")
