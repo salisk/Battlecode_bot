@@ -15,12 +15,15 @@ gc = bc.GameController()
 directions = list(bc.Direction)
 
 print("pystarted")
-print(bc.GameMap.earth_map)
 
 def find_occupiable(unit):
     if unit.location.is_in_garrison():
         return None
-    for dir in directions:
+    # Create a random order of directions
+    random_directions = directions
+    random.shuffle(random_directions)
+    # Iterate through each direction
+    for dir in random_directions:
         #print(str(unit.location.map_location().add(dir).clone()) + " ;P" )
         if unit.location.map_location().add(dir):
             loc = unit.location.map_location().add(dir)
@@ -28,7 +31,7 @@ def find_occupiable(unit):
             continue
         loc_map = gc.starting_map(loc.planet)
 
-        if (loc.x < loc_map.width and loc.x >= 0 and loc.y < loc_map.height and loc.y >= 0 
+        if (loc.x < loc_map.width and loc.x >= 0 and loc.y < loc_map.height and loc.y >= 0
             and gc.is_occupiable(unit.location.map_location().add(dir))):
             #if gc.can_move(unit.id, dir) and gc.is_occupiable(unit.location.map_location().add(dir)):
             return dir
@@ -52,6 +55,10 @@ gc.queue_research(bc.UnitType.Worker)
 gc.queue_research(bc.UnitType.Knight)
 
 my_team = gc.team()
+# Keep the track of the number of units we have
+workers_num = len(gc.my_units())
+factory_num = 0
+print(workers_num)
 
 while True:
     # We only support Python 3, which means brackets around print()
@@ -79,10 +86,13 @@ while True:
                     print('produced a worker!')
                     continue
 
-            else:   # or, try to build a factory:
+            else:
+                # or, try to build a factory:
                 if gc.karbonite() > bc.UnitType.Factory.blueprint_cost() and gc.can_blueprint(unit.id, bc.UnitType.Factory, bot_occupiable):
                     print("Blueprint")
                     gc.blueprint(unit.id, bc.UnitType.Factory, bot_occupiable)
+                    # Increase number of known factories
+                    factory_num = factory_num + 1
                 # replicate
                 elif bot_occupiable and gc.can_replicate(unit.id, bot_occupiable):
                     print("Worker replicated!")
