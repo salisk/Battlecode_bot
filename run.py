@@ -3,6 +3,8 @@ import random
 import sys
 import traceback
 import time
+import numpy
+from heapq import *
 
 import os
 print(os.getcwd())
@@ -63,6 +65,21 @@ print("Enemey team: " + str(enemy_team))
 units_earth = {bc.UnitType.Worker: len(gc.my_units()), bc.UnitType.Factory: 0, bc.UnitType.Knight: 0,
          bc.UnitType.Ranger: 0, bc.UnitType.Mage: 0, bc.UnitType.Healer: 0, bc.UnitType.Rocket: 0}
 print("Initial number of workers: " + str(units_earth[bc.UnitType.Worker]))
+
+# Get the map of the Earth
+loc_map = gc.starting_map(bc.Planet.Earth)
+
+# Create a matrix for the Earth's terrain, 0 - passable, 1 - impassable
+map_matrix = [[0]*loc_map.width for i in range(loc_map.height)]
+for x in range(loc_map.width):
+    for y in range(loc_map.height):
+        if loc_map.is_passable_terrain_at(bc.MapLocation(bc.Planet.Earth, x, y)):
+            map_matrix[x][y] = 0
+        else:
+            map_matrix[x][y] = 1
+print("Map:")
+print(map_matrix)
+
 # Current phase
 phase = 0
 # phase 1 ends in round 94
@@ -203,11 +220,11 @@ while True:
     try:
         print("Money: " + str(gc.karbonite()))
 
-        # Sense nearby units
-        loc_map = gc.starting_map(bc.Planet.Earth)
-        enemy_vec = gc.sense_nearby_units_by_team(
-            bc.MapLocation(bc.Planet.Earth, int(loc_map.width / 2), int(loc_map.height / 2)),loc_map.width * loc_map.width, enemy_team)
-        print("Enemies found: " + str(len(enemy_vec)))
+        # Sense nearby units, every 5 rounds
+        if(units_earth[bc.UnitType.Knight] > 0 and gc.round() % 5 == 0):
+            enemy_vec = gc.sense_nearby_units_by_team(
+                bc.MapLocation(bc.Planet.Earth, int(loc_map.width / 2), int(loc_map.height / 2)),loc_map.width * loc_map.width, enemy_team)
+            print("Enemies found: " + str(len(enemy_vec)))
 
         # walk through our units_earth:
         for unit in gc.my_units():
