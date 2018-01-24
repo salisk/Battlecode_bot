@@ -54,8 +54,10 @@ gc.queue_research(bc.UnitType.Rocket)
 gc.queue_research(bc.UnitType.Worker)
 gc.queue_research(bc.UnitType.Knight)
 
+# Teams
 my_team = gc.team()
-
+enemy_team = bc.Team.Red if my_team == bc.Team.Blue else bc.Team.Blue
+print("Enemey team: " + str(enemy_team))
 # Keep the track of the number of units_earth we have
 
 units_earth = {bc.UnitType.Worker: len(gc.my_units()), bc.UnitType.Factory: 0, bc.UnitType.Knight: 0,
@@ -63,6 +65,14 @@ units_earth = {bc.UnitType.Worker: len(gc.my_units()), bc.UnitType.Factory: 0, b
 print("Initial number of workers: " + str(units_earth[bc.UnitType.Worker]))
 # Current phase
 phase = 0
+# phase 1 ends in round 94
+'''
+# Find an empty corner
+distance = 0
+for unit in gc.my_units():
+    # Check each corner
+
+'''
 
 def worker_behaviour(unit):
     d = random.choice(directions)
@@ -84,7 +94,7 @@ def worker_behaviour(unit):
         # harvest
         elif bot_can_harvest:
             #print("Harvested")
-            print(gc.karbonite_at(unit.location.map_location().add(bot_can_harvest)))
+            #print(gc.karbonite_at(unit.location.map_location().add(bot_can_harvest)))
             gc.harvest(unit.id, bot_can_harvest)
         # and if that fails, try to move
         elif gc.is_move_ready(unit.id) and gc.can_move(unit.id, d):
@@ -100,23 +110,32 @@ def worker_behaviour(unit):
         # harvest
         elif bot_can_harvest:
             #print("Harvested")
-            print(gc.karbonite_at(unit.location.map_location().add(bot_can_harvest)))
+            #print(gc.karbonite_at(unit.location.map_location().add(bot_can_harvest)))
             gc.harvest(unit.id, bot_can_harvest)
         # and if that fails, try to move
         elif gc.is_move_ready(unit.id) and gc.can_move(unit.id, d):
             #print("Moved")
             gc.move_robot(unit.id, d)
-    # elif phase == 2:
+    elif phase == 2:
+        # harvest
+        if bot_can_harvest:
+            #print("Harvested")
+            #print(gc.karbonite_at(unit.location.map_location().add(bot_can_harvest)))
+            gc.harvest(unit.id, bot_can_harvest)
+        # and if that fails, try to move
+        elif gc.is_move_ready(unit.id) and gc.can_move(unit.id, d):
+            #print("Moved")
+            gc.move_robot(unit.id, d)
     # elif phase == 3:
 
     # first, let's look for nearby blueprints to work on
     location = unit.location
     if location.is_on_map():
-        nearby = gc.sense_nearby_units_earth(location.map_location(), 2)
+        nearby = gc.sense_nearby_units(location.map_location(), 2)
         for other in nearby:
             if unit.unit_type == bc.UnitType.Worker and gc.can_build(unit.id, other.id):
                 gc.build(unit.id, other.id)
-                print('built a factory!')
+                #print('built a factory!')
                 continue
     return
 
@@ -138,8 +157,26 @@ def factory_behaviour(unit):
         factory_produce(unit, bc.UnitType.Worker, bot_occupiable)
     elif phase == 1:
         factory_produce(unit, bc.UnitType.Knight, bot_occupiable)
-    # elif phase == 2:
+    elif phase == 2:
+        factory_produce(unit, bc.UnitType.Knight, bot_occupiable)
     # elif phase == 3:
+    return
+
+def knight_behaviour(unit):
+    # Find an empty space
+    bot_occupiable = find_occupiable(unit)
+    # Move
+    if phase < 3 and gc.is_move_ready(unit.id) and gc.can_move(unit.id, bot_occupiable):
+        gc.move_robot(unit.id, bot_occupiable)
+    # Check whether there is something to attack
+    location = unit.location
+    if location.is_on_map():
+        nearby = gc.sense_nearby_unit_by_team(location.map_location(), 2, enemy_team)
+        for other in nearby:
+            if other.team != my_team and gc.is_attack_ready(unit.id) and gc.can_attack(unit.id, other.id):
+                print('attacked a thing!')
+                gc.attack(unit.id, other.id)
+                continue
     return
 
 def switch_phase():
@@ -147,6 +184,12 @@ def switch_phase():
     if phase == 0 and units_earth[bc.UnitType.Worker] > 7:
         print("Phase 1 starting")
         phase = 1
+    elif phase == 1 and units_earth[bc.UnitType.Factory] >= 6:
+        print("Phase 2 starting")
+        phase = 2
+    elif phase == 2 and units_earth[bc.UnitType.Knight] > 10:
+        print("Phase 3 starting")
+        phase = 3
     else:
         return
 
@@ -159,13 +202,21 @@ while True:
     # frequent try/catches are a good idea
     try:
         print("Money: " + str(gc.karbonite()))
+
+        # Sense nearby units
+        loc_map = gc.starting_map(bc.Planet.Earth)
+        enemy_vec = gc.sense_nearby_units_by_team(
+            bc.MapLocation(bc.Planet.Earth, int(loc_map.width / 2), int(loc_map.height / 2)),loc_map.width * loc_map.width, enemy_team)
+        print("Enemies found: " + str(len(enemy_vec)))
+
         # walk through our units_earth:
         for unit in gc.my_units():
-
             if unit.unit_type == bc.UnitType.Worker:
                 worker_behaviour(unit)
             elif unit.unit_type == bc.UnitType.Factory:
                 factory_behaviour(unit)
+            elif unit.unit_type == bc.UnitType.Knight:
+                knight_behaviour(unit)
 
     except Exception as e:
         print('Error:', e)
