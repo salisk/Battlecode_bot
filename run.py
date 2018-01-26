@@ -3,10 +3,9 @@ import random
 import sys
 import traceback
 import time
-import numpy
-from heapq import *
-
 import os
+from copy import copy, deepcopy
+from collections import deque
 print(os.getcwd())
 
 print("pystarting")
@@ -70,18 +69,21 @@ print("Initial number of workers: " + str(units_earth[bc.UnitType.Worker]))
 loc_map = gc.starting_map(bc.Planet.Earth)
 
 # Create a matrix for the Earth's terrain, 0 - passable, 1 - impassable
-map_matrix = [[0]*loc_map.width for i in range(loc_map.height)]
+map_matrix = [[0]*loc_map.height for i in range(loc_map.width)]
+print("WIDTH = " + str(loc_map.width))
+print("HEIGHT = " + str(loc_map.height))
 for x in range(loc_map.width):
     for y in range(loc_map.height):
         if loc_map.is_passable_terrain_at(bc.MapLocation(bc.Planet.Earth, x, y)):
             map_matrix[x][y] = 0
         else:
             map_matrix[x][y] = 1
-print("Map:")
-print(map_matrix)
+#print("Map:")
+#print(map_matrix)
 
 # Current phase
 phase = 0
+built_rockets = 0
 # phase 1 ends in round 94
 '''
 # Find an empty corner
@@ -98,7 +100,7 @@ def worker_behaviour(unit):
 
     if phase == 0:
         if gc.karbonite() > bc.UnitType.Factory.blueprint_cost() and gc.can_blueprint(unit.id, bc.UnitType.Factory, bot_occupiable):
-            print("Blueprint")
+            print("Blueprint: Factory")
             gc.blueprint(unit.id, bc.UnitType.Factory, bot_occupiable)
             # Increase the number of known factories
             units_earth[bc.UnitType.Factory] += 1
@@ -120,7 +122,7 @@ def worker_behaviour(unit):
 
     elif phase == 1:
         if gc.karbonite() > bc.UnitType.Factory.blueprint_cost() and gc.can_blueprint(unit.id, bc.UnitType.Factory, bot_occupiable):
-            print("Blueprint")
+            print("Blueprint: Factory")
             gc.blueprint(unit.id, bc.UnitType.Factory, bot_occupiable)
             # Increase the number of known factories
             units_earth[bc.UnitType.Factory] += 1
@@ -133,7 +135,7 @@ def worker_behaviour(unit):
         elif gc.is_move_ready(unit.id) and gc.can_move(unit.id, d):
             #print("Moved")
             gc.move_robot(unit.id, d)
-    elif phase == 2:
+    elif phase == 2 or phase == 3:
         # harvest
         if bot_can_harvest:
             #print("Harvested")
@@ -143,6 +145,12 @@ def worker_behaviour(unit):
         elif gc.is_move_ready(unit.id) and gc.can_move(unit.id, d):
             #print("Moved")
             gc.move_robot(unit.id, d)
+    elif phase == 4:
+        if units_earth[bc.UnitType.Rocket] < 2 and gc.karbonite() > bc.UnitType.Rocket.blueprint_cost() and gc.can_blueprint(unit.id, bc.UnitType.Rocket, bot_occupiable):
+            print("Blueprint: Rocket")
+            gc.blueprint(unit.id, bc.UnitType.Rocket, bot_occupiable)
+            # Increase the number of known rockets
+            units_earth[bc.UnitType.Rocket] += 1
     # elif phase == 3:
 
     # first, let's look for nearby blueprints to work on
@@ -167,6 +175,14 @@ def factory_produce(unit, unit_type, bot_occupiable):
         units_earth[unit_type] += 1
         print('produced a ' + str(unit_type))
 
+def random_unit_type():
+    unit_types = [bc.UnitType.Knight, bc.UnitType.Ranger, bc.UnitType.Mage, bc.UnitType.Healer]
+    return random.choice(unit_types)
+
+def number_of_units_all_types():
+    return (units_earth[bc.UnitType.Knight] + units_earth[bc.UnitType.Ranger]
+        + units_earth[bc.UnitType.Mage] +units_earth[bc.UnitType.Healer])
+
 def factory_behaviour(unit):
     # first, factory logic
     bot_occupiable = find_occupiable(unit)
@@ -176,6 +192,11 @@ def factory_behaviour(unit):
         factory_produce(unit, bc.UnitType.Knight, bot_occupiable)
     elif phase == 2:
         factory_produce(unit, bc.UnitType.Knight, bot_occupiable)
+    elif phase == 3:
+        factory_produce(unit, random_unit_type(), bot_occupiable)
+    elif phase > 3:
+        if gc.karbonite() > 75:
+            factory_produce(unit, random_unit_type(), bot_occupiable)
     # elif phase == 3:
     return
 
@@ -196,6 +217,30 @@ def knight_behaviour(unit):
                 continue
     return
 
+# Modified BFS algorithm from http://compsci.ca/v3/viewtopic.php?t=32571
+def BFS(x,y,planet,target_x,target_y):
+    grid = deepcopy(map_matrix)
+    queue = deque( [(x,y,None)]) #create queue
+    while len(queue)>0: #make sure there are nodes to check left
+        node = queue.popleft() #grab the first node
+        x = node[0] #get x and y
+        y = node[1]
+        if x == target_x and y == target_y: #check if it's an exit
+            return GetPathFromNodes(node) #if it is then return the path
+        if grid[x][y] != 0 or not gc.starting_map(planet).is_passable_terrain_at(bc.MapLocation(planet, x, y)) or gc.sense_nearby_units(bc.MapLocation(planet, x, y), 1):
+            continue
+        grid[x][y]= 2 #make this spot explored so we don't try again
+        for i in [[x+1, y+1], [x+1, y-1], [x-1, y-1], [x-1, y+1], [x-1, y], [x+1, y], [x, y-1], [x, y+1]]:
+            queue.append((i[0],i[1],node))#create the new spot, with node as the parent
+    return []
+
+def GetPathFromNodes(node):
+    path = []
+    while(node != None):
+        path.append((node[0],node[1]))
+        node = node[2]
+    return path
+
 def switch_phase():
     global phase
     if phase == 0 and units_earth[bc.UnitType.Worker] > 7:
@@ -207,9 +252,16 @@ def switch_phase():
     elif phase == 2 and units_earth[bc.UnitType.Knight] > 10:
         print("Phase 3 starting")
         phase = 3
+    elif phase == 3 and gc.round() > 300:
+        print("Phase 4 starting")
+        phase = 4
+    elif phase == 4 and built_rockets == 2:
+        print("Phase 5 starting")
+        phase = 5
     else:
         return
 
+print(BFS(3, 7, bc.Planet.Earth, 7, 10))
 while True:
     # Phase logic
     switch_phase()
@@ -234,6 +286,9 @@ while True:
                 factory_behaviour(unit)
             elif unit.unit_type == bc.UnitType.Knight:
                 knight_behaviour(unit)
+            elif unit.unit_type == bc.UnitType.Rocket:
+                if unit.health == 200:
+                    built_rockets += 1
 
     except Exception as e:
         print('Error:', e)
