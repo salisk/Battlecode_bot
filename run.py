@@ -195,27 +195,113 @@ def factory_behaviour(unit):
     elif phase == 3:
         factory_produce(unit, random_unit_type(), bot_occupiable)
     elif phase > 3:
-        if gc.karbonite() > 75:
+        if gc.karbonite() >= 95:
             factory_produce(unit, random_unit_type(), bot_occupiable)
     # elif phase == 3:
     return
 
-def knight_behaviour(unit):
+def knight_behaviour(unit, direction = None):
+    # Find an empty space
+    bot_occupiable = find_occupiable(unit)
+
+    if gc.is_move_ready(unit.id) and gc.can_move(unit.id, bot_occupiable):
+        gc.move_robot(unit.id, bot_occupiable)
+    # Move
+    if direction and gc.is_move_ready(unit.id) and gc.can_move(unit.id, direction):
+        gc.move_robot(unit.id, direction)
+    # Check whether there is something to attack
+    location = unit.location
+    if location.is_on_map():
+        nearby = gc.sense_nearby_unit_by_team(location.map_location(), 50, enemy_team)
+        for other in nearby:
+            if other.team != my_team and gc.is_attack_ready(unit.id) and gc.can_attack(unit.id, other.id):
+                print('Knight attacked a thing!')
+                gc.attack(unit.id, other.id)
+                continue
+    return
+
+def ranger_behaviour(unit, direction = None):
+    # Find an empty space
+    bot_occupiable = find_occupiable(unit)
+
+    if gc.is_move_ready(unit.id) and gc.can_move(unit.id, bot_occupiable):
+        gc.move_robot(unit.id, bot_occupiable)
+    # Move
+    if direction and gc.is_move_ready(unit.id) and gc.can_move(unit.id, direction):
+        gc.move_robot(unit.id, direction)
+    # Check whether there is something to attack
+    location = unit.location
+    if location.is_on_map():
+        nearby = gc.sense_nearby_unit_by_team(location.map_location(), 70, enemy_team)
+        for other in nearby:
+            if other.team != my_team and gc.is_attack_ready(unit.id) and gc.can_attack(unit.id, other.id):
+                print('Ranger attacked a thing!')
+                gc.attack(unit.id, other.id)
+                continue
+    return
+
+def mage_behaviour(unit, direction = None):
+    # Find an empty space
+    bot_occupiable = find_occupiable(unit)
+
+    if gc.is_move_ready(unit.id) and gc.can_move(unit.id, bot_occupiable):
+        gc.move_robot(unit.id, bot_occupiable)
+    # Move
+    if direction and gc.is_move_ready(unit.id) and gc.can_move(unit.id, direction):
+        gc.move_robot(unit.id, direction)
+    # Check whether there is something to attack
+    location = unit.location
+    if location.is_on_map():
+        nearby = gc.sense_nearby_unit_by_team(location.map_location(), 30, enemy_team)
+        for other in nearby:
+            if other.team != my_team and gc.is_attack_ready(unit.id) and gc.can_attack(unit.id, other.id):
+                print('Mage attacked a thing!')
+                gc.attack(unit.id, other.id)
+                continue
+    return
+
+def healer_behaviour(unit):
     # Find an empty space
     bot_occupiable = find_occupiable(unit)
     # Move
-    if phase < 3 and gc.is_move_ready(unit.id) and gc.can_move(unit.id, bot_occupiable):
+    if gc.is_move_ready(unit.id) and gc.can_move(unit.id, bot_occupiable):
         gc.move_robot(unit.id, bot_occupiable)
     # Check whether there is something to attack
     location = unit.location
     if location.is_on_map():
-        nearby = gc.sense_nearby_unit_by_team(location.map_location(), 2, enemy_team)
+        nearby = gc.sense_nearby_unit_by_team(location.map_location(), 50, my_team)
         for other in nearby:
-            if other.team != my_team and gc.is_attack_ready(unit.id) and gc.can_attack(unit.id, other.id):
-                print('attacked a thing!')
-                gc.attack(unit.id, other.id)
+            if other.team == my_team and gc.is_heal_ready(unit.id) and gc.can_heal(unit.id, other.id):
+                print('Healed a thing!')
+                gc.heal(unit.id, other.id)
                 continue
     return
+
+def rocket_behaviour(unit):
+    location = unit.location
+    if location.is_on_map():
+        nearby = gc.sense_nearby_unit_by_team(location.map_location(), 9, my_team)
+        for other in nearby:
+            if other.team == my_team and gc.can_load(unit.id, other.id):
+                print('Loaded a ' + other.unit_type + ' into rocket!')
+                gc.load(unit.id, other.id)
+                continue
+    if len(unit.structure_garrison()) >= 6 or gc.round() >= 700:
+        gc.launch_rocket(unit.id, rocket_destination(unit.id))
+    if unit.location.map_location.planet == bc.Planet.Mars:
+        bot_occupiable = find_occupiable(unit)
+        if bot_occupiable:
+            gc.unload(unit.id, find_occupiable(unit))
+    return
+
+def rocket_destination(unit_id):
+    x = random.randint(0, gc.starting_map(planet).width)
+    y = random.randint(0, gc.starting_map(planet).height)
+    location = bc.MapLocation(bc.Planet.Mars
+    if gc.starting_map(bc.Planet.Mars).is_passable_terrain_at(location) and gc.can_launch_rocket(unit_id, location):
+        return bc.MapLocation(bc.Planet.Mars, x, y)
+    else:
+        return rocket_destination(unit_id)
 
 # Modified BFS algorithm from http://compsci.ca/v3/viewtopic.php?t=32571
 def BFS(x,y,planet,target_x,target_y):
@@ -225,6 +311,9 @@ def BFS(x,y,planet,target_x,target_y):
         node = queue.popleft() #grab the first node
         x = node[0] #get x and y
         y = node[1]
+
+        if not (x < gc.starting_map(planet).width and x >= 0 and y < gc.starting_map(planet).height and y >= 0):
+            continue
         if x == target_x and y == target_y: #check if it's an exit
             return GetPathFromNodes(node) #if it is then return the path
         if grid[x][y] != 0 or not gc.starting_map(planet).is_passable_terrain_at(bc.MapLocation(planet, x, y)) or gc.sense_nearby_units(bc.MapLocation(planet, x, y), 1):
@@ -261,7 +350,7 @@ def switch_phase():
     else:
         return
 
-print(BFS(3, 7, bc.Planet.Earth, 7, 10))
+#print(BFS(0, 0, bc.Planet.Earth, 19, 19))
 while True:
     # Phase logic
     switch_phase()
@@ -280,15 +369,43 @@ while True:
 
         # walk through our units_earth:
         for unit in gc.my_units():
+
             if unit.unit_type == bc.UnitType.Worker:
                 worker_behaviour(unit)
+                continue
             elif unit.unit_type == bc.UnitType.Factory:
                 factory_behaviour(unit)
-            elif unit.unit_type == bc.UnitType.Knight:
-                knight_behaviour(unit)
+                continue
             elif unit.unit_type == bc.UnitType.Rocket:
+                rocket_behaviour()
                 if unit.health == 200:
                     built_rockets += 1
+                continue
+
+            # Assign a target
+            closest_enemy_dist = 99999
+            closest_enemy_id = None
+            direction = None
+            for enemy in enemy_vec:
+                if unit.location.map_location().planet == enemy.location.map_location().planet and unit.location.map_location().distance_squared_to(enemy.location.map_location()) <= closest_enemy_dist:
+                    closest_enemy_dist = unit.location.map_location().distance_squared_to(enemy.location.map_location())
+                    closest_enemy_id = enemy.id
+
+            if closest_enemy_id:
+                path = BFS(unit.location.map_location().x, unit.location.map_location().y, unit.location.map_location().planet,
+                            gc.unit(closest_enemy_id).location.map_location().x, gc.unit(closest_enemy_id).location.map_location().y)
+                if path:
+                    cordinate = path[len(path) - 2]
+                    direction = unit.location.map_location().direction_to(bc.MapLocation(unit.location.map_location().planet, cordinate[0], cordinate[1]))
+
+            if unit.unit_type == bc.UnitType.Knight:
+                knight_behaviour(unit, direction)
+            elif unit.unit_type == bc.UnitType.Ranger:
+                ranger_behaviour(unit, direction)
+            elif unit.unit_type == bc.UnitType.Mage:
+                mage_behaviour(unit, direction)
+            elif unit.unit_type == bc.UnitType.Healer:
+                healer_behaviour(unit, direction)
 
     except Exception as e:
         print('Error:', e)
